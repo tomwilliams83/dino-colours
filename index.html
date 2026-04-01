@@ -311,22 +311,6 @@ const COLOURS = [
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function resumeAudio() { if (audioCtx.state === "suspended") audioCtx.resume(); }
 
-function playRoar() {
-  const t = audioCtx.currentTime;
-  const osc1 = audioCtx.createOscillator();
-  const osc2 = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  const dist = audioCtx.createWaveShaper();
-  const curve = new Float32Array(256);
-  for (let i = 0; i < 256; i++) { const x = (i*2)/256-1; curve[i] = (Math.PI+400)*x/(Math.PI+400*Math.abs(x)); }
-  dist.curve = curve;
-  osc1.type = "sawtooth"; osc1.frequency.setValueAtTime(80,t); osc1.frequency.exponentialRampToValueAtTime(45,t+0.6);
-  osc2.type = "square";   osc2.frequency.setValueAtTime(55,t); osc2.frequency.exponentialRampToValueAtTime(30,t+0.6);
-  gain.gain.setValueAtTime(0,t); gain.gain.linearRampToValueAtTime(0.4,t+0.08);
-  gain.gain.setValueAtTime(0.4,t+0.3); gain.gain.linearRampToValueAtTime(0,t+0.7);
-  osc1.connect(dist); osc2.connect(dist); dist.connect(gain); gain.connect(audioCtx.destination);
-  osc1.start(t); osc2.start(t); osc1.stop(t+0.75); osc2.stop(t+0.75);
-}
 
 function playSplat() {
   const t = audioCtx.currentTime;
@@ -421,16 +405,16 @@ function floodFill(startX, startY, fillColor) {
   const si = idx(startX, startY);
   const targetR = data[si], targetG = data[si+1], targetB = data[si+2], targetA = data[si+3];
 
-  // Don't fill dark outline pixels
+  // Don't fill dark or mid-grey outline pixels — lower threshold catches lighter lines
   const brightness = (targetR*299 + targetG*587 + targetB*114) / 1000;
-  if (brightness < 80 && targetA > 180) return;
+  if (brightness < 180 && targetA > 180) return;
 
   const tmp = document.createElement("canvas"); tmp.width = tmp.height = 1;
   const tc = tmp.getContext("2d"); tc.fillStyle = fillColor; tc.fillRect(0,0,1,1);
   const [fillR, fillG, fillB] = tc.getImageData(0,0,1,1).data;
   if (targetR===fillR && targetG===fillG && targetB===fillB) return;
 
-  const tol = 35;
+  const tol = 12; // tight — stops at light grey lines in the drawings
   const match = (r,g,b,a) => {
     if (a < 10) return targetA < 10;
     return Math.abs(r-targetR)<=tol && Math.abs(g-targetG)<=tol && Math.abs(b-targetB)<=tol;
@@ -461,7 +445,7 @@ function overlayOutlines() {
   const dst = cur.data;
   for (let i = 0; i < src.length; i += 4) {
     const brightness = (src[i]*299 + src[i+1]*587 + src[i+2]*114) / 1000;
-    if (brightness < 80) {
+    if (brightness < 180) {
       // Dark outline pixel — stamp it back
       dst[i]=src[i]; dst[i+1]=src[i+1]; dst[i+2]=src[i+2]; dst[i+3]=src[i+3];
     }
@@ -541,7 +525,7 @@ function buildDinoSelector() {
       currentDino = i;
       document.querySelectorAll(".dino-thumb").forEach((b,j) => b.classList.toggle("active", j===i));
       resizeCanvas();
-      playRoar();
+      playPop();
     });
     el.appendChild(btn);
   });
